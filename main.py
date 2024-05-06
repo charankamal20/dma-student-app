@@ -1,14 +1,23 @@
 from typing import Optional
-
+from pydantic import BaseModel
 from fastapi import FastAPI
+import pickle
+import pandas as pd
 
 app = FastAPI()
 
+class Student_Data(BaseModel):
+    hours: int
+    prev_score: int
+    extra_curr: bool
+    sleep_hrs: int
+    num_sample_paper: int
 
-@app.get("/")
-async def root():
-    return {"message": "Hello World"}
+# Load the saved model from the pickle file
+with open('stacking_regressor.pkl', 'rb') as f:
+    model = pickle.load(f)
 
-@app.get("/items/{item_id}")
-def read_item(item_id: int, q: Optional[str] = None):
-    return {"item_id": item_id, "q": q}
+@app.post("/")
+async def pref_score(item: Student_Data):
+    df = pd.DataFrame([item.dict().values()], columns=item.dict().keys())
+    return { "hell0" : "World" }
