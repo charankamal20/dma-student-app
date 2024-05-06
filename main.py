@@ -41,33 +41,36 @@ class StudentData(BaseModel):
 
 @app.post("/")
 async def predict_performance(item: StudentData):
-    # Create a DataFrame from the incoming JSON data
-    extra = {
-        "Extracurricular Activities": item.extracurricular_activities,
-    }
-    newData = {
-        "Hours Studied": item.hours_studied,
-        "Previous Scores": item.previous_scores,
-        "Sleep Hours": item.sleep_hours,
-        "Sample Question Papers Practiced": item.sample_question_papers_practiced
-    }
-    extraData = pd.DataFrame([extra])
-    data = pd.DataFrame([newData])
+    try:
+        # Create a DataFrame from the incoming JSON data
+        extra = {
+            "Extracurricular Activities": item.extracurricular_activities,
+        }
+        newData = {
+            "Hours Studied": item.hours_studied,
+            "Previous Scores": item.previous_scores,
+            "Sleep Hours": item.sleep_hours,
+            "Sample Question Papers Practiced": item.sample_question_papers_practiced
+        }
+        extraData = pd.DataFrame([extra])
+        data = pd.DataFrame([newData])
 
-    # Scale numerical columns
-    # Convert 'extracurricular_activities' column to numeric
-    extraData['Extracurricular Activities'] = extraData['Extracurricular Activities'].apply(lambda x: 1 if x.lower() == 'yes' else 0)
+        # Scale numerical columns
+        # Convert 'extracurricular_activities' column to numeric
+        extraData['Extracurricular Activities'] = extraData['Extracurricular Activities'].apply(lambda x: 1 if x.lower() == 'yes' else 0)
 
-    # Transform data using the scaler
-    scaled_data = scaler.transform(data)
+        # Transform data using the scaler
+        scaled_data = scaler.transform(data)
 
-    # Convert scaled_data to a DataFrame
-    scaled_df = pd.DataFrame(scaled_data, columns=data.columns.tolist())
+        # Convert scaled_data to a DataFrame
+        scaled_df = pd.DataFrame(scaled_data, columns=data.columns.tolist())
 
-    # Add the 'extraData' DataFrame after the first two columns of the 'data' DataFrame
-    data = pd.concat([scaled_df.iloc[:, :2], extraData, scaled_df.iloc[:, 2:]], axis=1)
+        # Add the 'extraData' DataFrame after the first two columns of the 'data' DataFrame
+        data = pd.concat([scaled_df.iloc[:, :2], extraData, scaled_df.iloc[:, 2:]], axis=1)
 
-    # Make prediction
-    prediction = model.predict(data)
+        # Make prediction
+        prediction = model.predict(data)
 
-    return {"predicted_performance": prediction[0]}
+        return { "success": True, "predicted_performance": prediction[0] }
+    except Exception as e:
+        return { "success": False, "error_message": str(e) }
