@@ -6,6 +6,19 @@ import pandas as pd
 from sklearn.preprocessing import MinMaxScaler, LabelEncoder
 
 app = FastAPI()
+
+# Initialize scaler
+scaler = MinMaxScaler()
+encoder = LabelEncoder()
+
+def fit_preprocess():
+    df = pd.read_csv(r"./students.csv")
+    num_columns = [x for x in df.columns if x != 'Extracurricular Activities' and x != 'Performance Index']
+    df[num_columns]  = scaler.fit_transform(df[num_columns])
+    df['Extracurricular Activities'] = encoder.fit_transform(df['Extracurricular Activities'])
+
+fit_preprocess()
+
 # Load the saved model from the pickle file
 with open('stacking_regressor.pkl', 'rb') as f:
     model = pickle.load(f)
@@ -18,34 +31,37 @@ class StudentData(BaseModel):
     sleep_hours: int
     sample_question_papers_practiced: int
 
-# Define a function to preprocess the data
-def preprocess_data(item: StudentData) -> pd.DataFrame:
-    # Convert the Pydantic model to a dictionary
-    data_dict = item.dict()
 
-    # Create a DataFrame from the dictionary
-    df = pd.DataFrame([data_dict])
+@app.post("/")
+async def predict_performance(item: StudentData):
+    # Create a DataFrame from the incoming JSON data
+    extra = {
+        "Extracurricular Activities": item.extracurricular_activities,
+    }
 
-    # Apply the same preprocessing steps as in your ML model
-    scaler = MinMaxScaler()
-    encoder = LabelEncoder()
-
-    # Select numerical columns for scaling
-    num_columns = [x for x in df.columns if x != 'extracurricular_activities']
+    newData = {
+        "Hours Studied": item.hours_studied,
+        "Previous Scores": item.previous_scores,
+        "Sleep Hours": item.sleep_hours,
+        "Sample Question Papers Practiced": item.sample_question_papers_practiced
+    }
+    extraData = pd.DataFrame([extra])
+    data = pd.DataFrame([newData])
 
     # Scale numerical columns
-    df[num_columns] = scaler.fit_transform(df[num_columns])
+    # Convert 'extracurricular_activities' column to numeric
+    extraData['Extracurricular Activities'] = extraData['Extracurricular Activities'].apply(lambda x: 1 if x == 'yes' else 0)
 
-    # Encode 'extracurricular_activities' column
-    df['extracurricular_activities'] = encoder.fit_transform(df['extracurricular_activities'])
+    # Transform data using the scaler
+    scaled_data = scaler.transform(data)
 
-    return df
+    # Convert scaled_data to a DataFrame
+    scaled_df = pd.DataFrame(scaled_data, columns=data.columns.tolist())
 
-# Define the FastAPI route
-@app.post("/")
-async def pref_score(item: StudentData):
-    # Preprocess the data
-    preprocessed_data = preprocess_data(item)
+    # Add the 'extraData' DataFrame after the first two columns of the 'data' DataFrame
+    data = pd.concat([scaled_df.iloc[:, :2], extraData, scaled_df.iloc[:, 2:]], axis=1)
 
-    # Perform further processing or return the preprocessed data
-    return {"preprocessed_data": preprocessed_data.to_dict()}
+    # Make prediction
+    prediction = model.predict(data)
+
+    return {"predicted_performance": prediction[0]}
