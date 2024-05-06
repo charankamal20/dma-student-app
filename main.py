@@ -4,7 +4,7 @@ from fastapi import FastAPI
 import pickle
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler, LabelEncoder
-
+from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI()
 
 # Initialize scaler
@@ -19,6 +19,13 @@ def fit_preprocess():
 
 fit_preprocess()
 
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 # Load the saved model from the pickle file
 with open('stacking_regressor.pkl', 'rb') as f:
     model = pickle.load(f)
@@ -38,7 +45,6 @@ async def predict_performance(item: StudentData):
     extra = {
         "Extracurricular Activities": item.extracurricular_activities,
     }
-
     newData = {
         "Hours Studied": item.hours_studied,
         "Previous Scores": item.previous_scores,
@@ -50,7 +56,7 @@ async def predict_performance(item: StudentData):
 
     # Scale numerical columns
     # Convert 'extracurricular_activities' column to numeric
-    extraData['Extracurricular Activities'] = extraData['Extracurricular Activities'].apply(lambda x: 1 if x == 'yes' else 0)
+    extraData['Extracurricular Activities'] = extraData['Extracurricular Activities'].apply(lambda x: 1 if x.lower() == 'yes' else 0)
 
     # Transform data using the scaler
     scaled_data = scaler.transform(data)
